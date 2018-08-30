@@ -97,10 +97,10 @@ public class IpAuthenticator implements Authenticator {
         }
 
         if (formData.containsKey("continue")) {
-            String secret = formData.getFirst("nonce");
+            String secret = formData.getFirst("nonce").trim();
             if (secret.equals(context.getAuthenticationSession().getAuthNote(IP_SECRET))) {
 
-                infoLog(user.getUsername(), clientId, ip, "IP verification success with secret " + secret + ".");
+                infoLog(user.getUsername(), clientId, ip, "IP verification success with secret \"" + secret + "\"");
 
                 List<String> list = new ArrayList<>(user.getAttribute(IpAuthorizeConstants.VERIFIED_IP_ADDRESS));
                 list.add(context.getAuthenticationSession().getAuthNote(IP_ADDRESS));
@@ -110,7 +110,7 @@ public class IpAuthenticator implements Authenticator {
                 context.success();
                 return;
             } else {
-                infoLog(user.getUsername(), clientId, ip, "Invalid IP verification secret " + secret + ".");
+                infoLog(user.getUsername(), clientId, ip, "Invalid IP verification secret \"" + secret + "\"");
                 context.forceChallenge(
                         context.form().setError(IpAuthorizeConstants.IP_VERIFICATION_INVALID_NONCE_MESSAGE)
                                 .createForm(IP_AUTHORIZE_SENT_FTL));
@@ -122,7 +122,7 @@ public class IpAuthenticator implements Authenticator {
 
         String email = formData.getFirst("email");
         if (email != null && email.equalsIgnoreCase(user.getEmail())) {
-            email = email.toLowerCase();
+            email = email.toLowerCase().trim();
             infoLog(user.getUsername(), clientId, ip, "Found user with email " + email);
             if (context.getAuthenticationSession().getAuthNote(IP_ADDRESS) != null) {
                 context.forceChallenge(
@@ -162,7 +162,7 @@ public class IpAuthenticator implements Authenticator {
                 infoLog(user.getUsername(), clientId, ip, "Email with verification code " + token.getActionVerificationNonce() + " sent to " + user.getEmail());
 
                 context.getAuthenticationSession().setAuthNote(IP_SECRET,
-                        token.getActionVerificationNonce().toString());
+                        token.getActionVerificationNonce().toString().trim());
                 context.getAuthenticationSession().setAuthNote(IP_ADDRESS, IpAuthorizationEntry.from(token).format());
 
                 context.forceChallenge(
