@@ -38,11 +38,10 @@ public final class IpAddressMatcher {
      * @param ipAddress the address or range of addresses from which the request must come.
      */
     public IpAddressMatcher(String ipAddress) {
-
         int indexOf = ipAddress.indexOf('/');
         if (indexOf > 0) {
-            ipAddress = ipAddress.substring(0, indexOf);
             this.nMaskBits = Integer.parseInt(ipAddress.substring(indexOf + 1));
+            ipAddress = ipAddress.substring(0, indexOf);
         } else {
             this.nMaskBits = -1;
         }

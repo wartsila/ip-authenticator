@@ -25,9 +25,9 @@
     <groupId>com.wartsila.keycloak</groupId>
     <artifactId>ip-authenticator</artifactId>
     <packaging>jar</packaging>
-    <version>0.3.2-SNAPSHOT</version>
+    <version>1.0.0-SNAPSHOT</version>
 
-    <name>Second-factor authenticator for keycloak that requires that user verifies their IP addres for login.</name>
+    <name>Second-factor authenticator for Keycloak that requires that user verifies their IP address for login.</name>
     <description />
     <modelVersion>4.0.0</modelVersion>
 

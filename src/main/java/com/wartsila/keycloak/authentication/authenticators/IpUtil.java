@@ -39,18 +39,18 @@ public class IpUtil {
             address = session.getContext().getConnection().getRemoteAddr();
         }
 
-        logger.debugf("Client IP address interpreted as %s", address);
+        logger.infof("Client IP address interpreted as %s", address);
         return address;
     }
 
     private static String getIpFromXff(HttpRequest request) {
         String xff = request.getHttpHeaders().getHeaderString("X-Forwarded-For");
-        logger.debugf("X-Forwarded-For: %s", xff);
+        logger.infof("X-Forwarded-For: %s", xff);
 
         if (xff != null && xff.indexOf(",") > 0) {
             // if there's multiple IP's, the first one is the client IP, the rest are proxies.
             String onlyClientIp = xff.substring(0, xff.indexOf(",")).trim();
-            logger.debugf("From X-Forwarded-For, interpreted %s as client IP", onlyClientIp);
+            logger.infof("From X-Forwarded-For, interpreted %s as client IP", onlyClientIp);
             return onlyClientIp;
         }
         return xff;

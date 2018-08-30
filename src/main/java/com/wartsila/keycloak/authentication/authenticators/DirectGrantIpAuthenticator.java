@@ -29,6 +29,7 @@ import java.util.stream.Stream;
 
 import javax.ws.rs.core.Response;
 
+import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
 import org.keycloak.authentication.authenticators.directgrant.AbstractDirectGrantAuthenticator;
@@ -46,13 +47,21 @@ public class DirectGrantIpAuthenticator extends AbstractDirectGrantAuthenticator
 
     public static final String IP_VERIFICATION_MISSING = "verified_ip_missing_or_expired";
 
+    private static final Logger logger = Logger.getLogger(DirectGrantIpAuthenticator.class);
+
     public static final AuthenticationExecutionModel.Requirement[] REQUIREMENT_CHOICES = {
             AuthenticationExecutionModel.Requirement.REQUIRED, AuthenticationExecutionModel.Requirement.DISABLED };
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
         if (!IpAuthenticatorUtil.authenticate(context)) {
-            context.getEvent().user(context.getUser());
+
+            UserModel user = context.getUser();
+            String ip = IpUtil.getIp(context.getHttpRequest(), context.getSession());
+            String clientId = context.getAuthenticationSession().getClient().getClientId();
+            logger.infof("%s;%s;%s -- IP verification failed" , user.getUsername(), clientId, ip);
+
+            context.getEvent().user(user);
             context.getEvent().error(IP_VERIFICATION_MISSING);
             Response challengeResponse = errorResponse(Response.Status.UNAUTHORIZED.getStatusCode(),
                     IP_VERIFICATION_MISSING, "Verified IP missing or expired");

@@ -62,7 +62,12 @@ public class IpAuthenticator implements Authenticator {
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
-        if (!IpAuthenticatorUtil.authenticate(context)) {
+        if (IpAuthenticatorUtil.authenticate(context)) {
+            UserModel user = context.getUser();
+            String ip = getIp(context);
+            String clientId = context.getAuthenticationSession().getClient().getClientId();
+            infoLog(user.getUsername(), clientId, ip, "already valid IP address.");
+        } else {
             Response challengeResponse = challenge(context);
             context.challenge(challengeResponse);
         }
@@ -70,25 +75,33 @@ public class IpAuthenticator implements Authenticator {
 
     @Override
     public void action(AuthenticationFlowContext context) {
+        UserModel user = context.getUser();
+        String ip = getIp(context);
+        String clientId = context.getAuthenticationSession().getClient().getClientId();
 
         if (context.getStatus() == FlowStatus.SUCCESS) {
+            infoLog(user.getUsername(), clientId, ip, "IP authentication flow status SUCCESS.");
             return;
         }
 
         MultivaluedMap<String, String> formData = context.getHttpRequest().getDecodedFormParameters();
         if (formData.containsKey("cancel")) {
             context.cancelLogin();
+            infoLog(user.getUsername(), clientId, ip, "IP authentication flow cancelled.");
             return;
         }
 
         if (IpAuthenticatorUtil.tryAuthorize(context)) {
+            infoLog(user.getUsername(), clientId, ip, "IP authorize success.");
             return;
         }
 
-        UserModel user = context.getUser();
         if (formData.containsKey("continue")) {
             String secret = formData.getFirst("nonce");
             if (secret.equals(context.getAuthenticationSession().getAuthNote(IP_SECRET))) {
+
+                infoLog(user.getUsername(), clientId, ip, "IP verification success with secret " + secret + ".");
+
                 List<String> list = new ArrayList<>(user.getAttribute(IpAuthorizeConstants.VERIFIED_IP_ADDRESS));
                 list.add(context.getAuthenticationSession().getAuthNote(IP_ADDRESS));
                 user.setAttribute(IpAuthorizeConstants.VERIFIED_IP_ADDRESS, list);
@@ -97,6 +110,7 @@ public class IpAuthenticator implements Authenticator {
                 context.success();
                 return;
             } else {
+                infoLog(user.getUsername(), clientId, ip, "Invalid IP verification secret " + secret + ".");
                 context.forceChallenge(
                         context.form().setError(IpAuthorizeConstants.IP_VERIFICATION_INVALID_NONCE_MESSAGE)
                                 .createForm(IP_AUTHORIZE_SENT_FTL));
@@ -104,12 +118,12 @@ public class IpAuthenticator implements Authenticator {
             }
         }
 
+        infoLog(user.getUsername(), clientId, ip, "IP verification required");
+
         String email = formData.getFirst("email");
-
-        if (email != null && email.equals(context.getUser().getEmail())) {
-
-            logger.debugf("Found user %s with email %s", context.getUser().getUsername(), email);
-
+        if (email != null && email.equalsIgnoreCase(user.getEmail())) {
+            email = email.toLowerCase();
+            infoLog(user.getUsername(), clientId, ip, "Found user with email " + email);
             if (context.getAuthenticationSession().getAuthNote(IP_ADDRESS) != null) {
                 context.forceChallenge(
                         context.form().setError(IpAuthorizeConstants.IP_VERIFICATION_EMAIL_ALREADY_SENT_MESSAGE)
@@ -145,6 +159,8 @@ public class IpAuthenticator implements Authenticator {
 
                 EmailUtil.from(context).send(IP_AUTHORIZE_FTL, "Eniram IP verification", attributes);
 
+                infoLog(user.getUsername(), clientId, ip, "Email with verification code " + token.getActionVerificationNonce() + " sent to " + user.getEmail());
+
                 context.getAuthenticationSession().setAuthNote(IP_SECRET,
                         token.getActionVerificationNonce().toString());
                 context.getAuthenticationSession().setAuthNote(IP_ADDRESS, IpAuthorizationEntry.from(token).format());
@@ -158,13 +174,14 @@ public class IpAuthenticator implements Authenticator {
                 context.failure(AuthenticationFlowError.INTERNAL_ERROR, challenge);
             }
         } else {
-            if (logger.isInfoEnabled()) {
-                logger.info(String.format("Email %s does not match the one on record for %s (%s)", email,
-                        user.getUsername(), user.getEmail()));
-            }
+            infoLog(user.getUsername(), clientId, ip, "Email " + email + " does not match the one on record " + user.getEmail());
             context.challenge(
                     challenge(context, f -> f.setError(IpAuthorizeConstants.IP_VERIFICATION_INVALID_EMAIL_MESSAGE)));
         }
+    }
+
+    private void infoLog(String username, String clientId, String ip, String s) {
+        logger.infof("%s;%s;%s -- " + s, username, clientId, ip);
     }
 
     private long authenticationExpires(AuthenticationFlowContext context) {

@@ -53,7 +53,8 @@ public class IpAuthorizeActionTokenHandler extends AbstractActionTokenHander<IpA
     public Response handleToken(IpAuthorizeActionToken token, ActionTokenContext<IpAuthorizeActionToken> tokenContext) {
         UserModel user = tokenContext.getAuthenticationSession().getAuthenticatedUser();
 
-        if (!token.getEmail().equals(user.getEmail())) {
+        String email = token.getEmail().toLowerCase();
+        if (!email.equalsIgnoreCase(user.getEmail())) {
             Response response = tokenContext.getSession().getProvider(LoginFormsProvider.class)
                     .setError(IpAuthorizeConstants.IP_VERIFICIATION_FAILED_EMAIL_CHANGED_MESSAGE).createInfoPage();
             return response;

@@ -85,7 +85,7 @@ public class IpAuthenticatorUtil {
 
         ConditionalActionMode actionMode = checkModeForClients(context);
         if (actionMode == ConditionalActionMode.SKIP) {
-            logger.debugf("Skipping IP verification check: client is disabled");
+            logger.infof("Skipping IP verification check: client is disabled");
             return actionMode;
         }
 
