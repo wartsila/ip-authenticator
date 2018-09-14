@@ -38,8 +38,8 @@ public class IpAuthorizeActionToken extends DefaultActionToken {
     @JsonProperty(value = "ex")
     private long authorizationExpires;
 
-    public IpAuthorizeActionToken(String userId, int absoluteExpirationInSecs, String authenticationSessionId) {
-        super(userId, TOKEN_TYPE, absoluteExpirationInSecs, null, authenticationSessionId);
+    public IpAuthorizeActionToken(String userId, int absoluteExpirationInSecs) {
+        super(userId, TOKEN_TYPE, absoluteExpirationInSecs, null);
     }
 
     @SuppressWarnings("unused")

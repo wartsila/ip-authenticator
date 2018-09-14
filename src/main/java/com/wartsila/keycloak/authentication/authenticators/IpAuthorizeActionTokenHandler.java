@@ -70,10 +70,6 @@ public class IpAuthorizeActionTokenHandler extends AbstractActionTokenHander<IpA
         if (tokenContext.isAuthenticationSessionFresh()) {
             AuthenticationSessionManager asm = new AuthenticationSessionManager(tokenContext.getSession());
             asm.removeAuthenticationSession(realm, authSession, true);
-
-            AuthenticationSessionProvider authSessProvider = tokenContext.getSession().authenticationSessions();
-            authSession = authSessProvider.getAuthenticationSession(realm, token.getAuthenticationSessionId());
-
             return tokenContext.getSession().getProvider(LoginFormsProvider.class)
                     .setSuccess(IpAuthorizeConstants.IP_VERIFICATION_SUCCESS_MESSAGE, token.getIpAddress())
                     .setAttribute(Constants.SKIP_LINK, false).createInfoPage();

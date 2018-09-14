@@ -54,10 +54,9 @@ public class DirectGrantIpAuthenticator extends AbstractDirectGrantAuthenticator
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
-        if (!IpAuthenticatorUtil.authenticate(context)) {
-
+        String ip = IpUtil.getIp(context.getHttpRequest(), context.getSession());
+        if (!IpAuthenticatorUtil.authenticate(context, ip)) {
             UserModel user = context.getUser();
-            String ip = IpUtil.getIp(context.getHttpRequest(), context.getSession());
             String clientId = context.getAuthenticationSession().getClient().getClientId();
             logger.infof("%s;%s;%s -- IP verification failed" , user.getUsername(), clientId, ip);
 

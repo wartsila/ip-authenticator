@@ -38,7 +38,6 @@ public class IpUtil {
             // fallback to remote address
             address = session.getContext().getConnection().getRemoteAddr();
         }
-
         logger.infof("Client IP address interpreted as %s", address);
         return address;
     }

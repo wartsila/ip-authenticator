@@ -39,7 +39,7 @@ public class IpAuthenticatorUtil {
 
     private static final Logger logger = Logger.getLogger(IpAuthenticatorUtil.class);
 
-    public static boolean authenticate(AuthenticationFlowContext context) {
+    public static boolean authenticate(AuthenticationFlowContext context, String ipAddress) {
         ConditionalActionMode actionMode = checkActionMode(context);
 
         if (actionMode == ConditionalActionMode.SKIP) {
@@ -52,19 +52,14 @@ public class IpAuthenticatorUtil {
             return true;
         }
 
-        if (tryAuthorize(context)) {
+        if (tryAuthorize(context, ipAddress)) {
             return true;
         }
 
         return false;
     }
 
-    private static String getIp(AuthenticationFlowContext context) {
-        return IpUtil.getIp(context.getHttpRequest(), context.getSession());
-    }
-
-    static boolean tryAuthorize(AuthenticationFlowContext context) {
-        String ipAddress = getIp(context);
+    static boolean tryAuthorize(AuthenticationFlowContext context, String ipAddress) {
         if (context.getUser().getAttribute(IpAuthorizeConstants.VERIFIED_IP_ADDRESS).stream()
                 .map(IpAuthorizationEntry::parse).anyMatch(e -> e.authorize(ipAddress))) {
             context.success();

@@ -16,16 +16,7 @@
  */
 package com.wartsila.keycloak.authentication.authenticators;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
-
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.UriBuilder;
-
+import com.wartsila.keycloak.email.EmailUtil;
 import org.jboss.logging.Logger;
 import org.keycloak.authentication.AuthenticationFlowContext;
 import org.keycloak.authentication.AuthenticationFlowError;
@@ -43,11 +34,20 @@ import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
 import org.keycloak.services.messages.Messages;
-import org.keycloak.sessions.AuthenticationSessionModel;
 
-import com.wartsila.keycloak.email.EmailUtil;
+import javax.ws.rs.core.MultivaluedMap;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriBuilder;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 public class IpAuthenticator implements Authenticator {
+
+    private static final SecureRandom RND = new SecureRandom();
 
     private static final String IP_SECRET = "ip-secret";
     private static final String IP_ADDRESS = "ip-address";
@@ -62,9 +62,9 @@ public class IpAuthenticator implements Authenticator {
 
     @Override
     public void authenticate(AuthenticationFlowContext context) {
-        if (IpAuthenticatorUtil.authenticate(context)) {
+        String ip = IpUtil.getIp(context.getHttpRequest(), context.getSession());
+        if (IpAuthenticatorUtil.authenticate(context, ip)) {
             UserModel user = context.getUser();
-            String ip = getIp(context);
             String clientId = context.getAuthenticationSession().getClient().getClientId();
             infoLog(user.getUsername(), clientId, ip, "already valid IP address.");
         } else {
@@ -76,7 +76,7 @@ public class IpAuthenticator implements Authenticator {
     @Override
     public void action(AuthenticationFlowContext context) {
         UserModel user = context.getUser();
-        String ip = getIp(context);
+        String ip = IpUtil.getIp(context.getHttpRequest(), context.getSession());
         String clientId = context.getAuthenticationSession().getClient().getClientId();
 
         if (context.getStatus() == FlowStatus.SUCCESS) {
@@ -91,7 +91,7 @@ public class IpAuthenticator implements Authenticator {
             return;
         }
 
-        if (IpAuthenticatorUtil.tryAuthorize(context)) {
+        if (IpAuthenticatorUtil.tryAuthorize(context, ip)) {
             infoLog(user.getUsername(), clientId, ip, "IP authorize success.");
             return;
         }
@@ -121,7 +121,7 @@ public class IpAuthenticator implements Authenticator {
         infoLog(user.getUsername(), clientId, ip, "IP verification required");
 
         String email = formData.getFirst("email");
-        if (email != null && email.equalsIgnoreCase(user.getEmail())) {
+        if (email != null && email.trim().equalsIgnoreCase(user.getEmail())) {
             email = email.toLowerCase().trim();
             infoLog(user.getUsername(), clientId, ip, "Found user with email " + email);
             if (context.getAuthenticationSession().getAuthNote(IP_ADDRESS) != null) {
@@ -131,14 +131,12 @@ public class IpAuthenticator implements Authenticator {
                 return;
             }
 
-            String ipAddress = getIp(context);
-            AuthenticationSessionModel authenticationSession = context.getAuthenticationSession();
+            String ipAddress = IpUtil.getIp(context.getHttpRequest(), context.getSession());
             int validityInSecs = context.getRealm().getActionTokenGeneratedByUserLifespan();
             int absoluteExpirationInSecs = Time.currentTime() + validityInSecs;
 
             // We send the secret in the email in a link as a query param.
-            IpAuthorizeActionToken token = new IpAuthorizeActionToken(user.getId(), absoluteExpirationInSecs,
-                    authenticationSession.getId());
+            IpAuthorizeActionToken token = new IpAuthorizeActionToken(user.getId(), absoluteExpirationInSecs);
             token.setEmail(email);
             token.setIpAddress(ipAddress);
             token.setFlowId(context.getExecution().getFlowId());
@@ -150,19 +148,21 @@ public class IpAuthenticator implements Authenticator {
                     .build().toString();
 
             try {
+                String manualNonce = RandomNonceUtils.makeManualNonce();
                 HashMap<String, Object> attributes = new HashMap<>();
                 attributes.put("ip", ipAddress);
                 attributes.put("link", link);
                 attributes.put("linkExpiration", TimeUnit.SECONDS.toMinutes(validityInSecs));
                 attributes.put("realmName", context.getRealm().getName());
                 attributes.put("nonce", token.getActionVerificationNonce());
+                attributes.put("manualNonce", manualNonce);
 
                 EmailUtil.from(context).send(IP_AUTHORIZE_FTL, "Eniram IP verification", attributes);
 
                 infoLog(user.getUsername(), clientId, ip, "Email with verification code " + token.getActionVerificationNonce() + " sent to " + user.getEmail());
 
                 context.getAuthenticationSession().setAuthNote(IP_SECRET,
-                        token.getActionVerificationNonce().toString().trim());
+                        manualNonce.trim());
                 context.getAuthenticationSession().setAuthNote(IP_ADDRESS, IpAuthorizationEntry.from(token).format());
 
                 context.forceChallenge(
@@ -207,13 +207,9 @@ public class IpAuthenticator implements Authenticator {
 
     protected Response challenge(AuthenticationFlowContext context, Consumer<LoginFormsProvider> editor) {
         LoginFormsProvider forms = context.form();
-        forms.setAttribute("ip", getIp(context));
+        forms.setAttribute("ip", IpUtil.getIp(context.getHttpRequest(), context.getSession()));
         editor.accept(forms);
         return forms.createForm(IP_AUTHORIZE_FTL);
-    }
-
-    private String getIp(AuthenticationFlowContext context) {
-        return IpUtil.getIp(context.getHttpRequest(), context.getSession());
     }
 
     @Override
