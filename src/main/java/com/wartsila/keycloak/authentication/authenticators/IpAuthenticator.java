@@ -47,9 +47,8 @@ import java.util.function.Consumer;
 
 public class IpAuthenticator implements Authenticator {
 
-    private static final SecureRandom RND = new SecureRandom();
-
     private static final String IP_SECRET = "ip-secret";
+    private static final String IP_SECRET_MANUAL = "ip-secret-manual";
     private static final String IP_ADDRESS = "ip-address";
     private static final String IP_AUTHORIZE_SENT_FTL = "ip-authorize-sent.ftl";
     private static final String IP_AUTHORIZE_FTL = "ip-authorize.ftl";
@@ -98,7 +97,8 @@ public class IpAuthenticator implements Authenticator {
 
         if (formData.containsKey("continue")) {
             String secret = formData.getFirst("nonce").trim();
-            if (secret.equals(context.getAuthenticationSession().getAuthNote(IP_SECRET))) {
+            if (secret.equals(context.getAuthenticationSession().getAuthNote(IP_SECRET)) ||
+                    secret.equals(context.getAuthenticationSession().getAuthNote(IP_SECRET_MANUAL))) {
 
                 infoLog(user.getUsername(), clientId, ip, "IP verification success with secret \"" + secret + "\"");
 
@@ -107,6 +107,7 @@ public class IpAuthenticator implements Authenticator {
                 user.setAttribute(IpAuthorizeConstants.VERIFIED_IP_ADDRESS, list);
                 context.getAuthenticationSession().removeAuthNote(IP_ADDRESS);
                 context.getAuthenticationSession().removeAuthNote(IP_SECRET);
+                context.getAuthenticationSession().removeAuthNote(IP_SECRET_MANUAL);
                 context.success();
                 return;
             } else {
@@ -159,9 +160,11 @@ public class IpAuthenticator implements Authenticator {
 
                 EmailUtil.from(context).send(IP_AUTHORIZE_FTL, "Eniram IP verification", attributes);
 
-                infoLog(user.getUsername(), clientId, ip, "Email with verification code " + token.getActionVerificationNonce() + " sent to " + user.getEmail());
+                infoLog(user.getUsername(), clientId, ip, "Email with verification code \"" + token.getActionVerificationNonce() + "\" and manual verification code \"" + manualNonce + "\" sent to " + user.getEmail());
 
                 context.getAuthenticationSession().setAuthNote(IP_SECRET,
+                        token.getActionVerificationNonce().toString().trim());
+                context.getAuthenticationSession().setAuthNote(IP_SECRET_MANUAL,
                         manualNonce.trim());
                 context.getAuthenticationSession().setAuthNote(IP_ADDRESS, IpAuthorizationEntry.from(token).format());
 
